@@ -1,0 +1,38 @@
+seed: 147
+
+model:
+  name: PyramidUYnet
+  params:
+    encoder_name: efficientnet_b3
+    classes: 1
+    center: True
+
+train_test_ratio: 0.8
+batch_size: 16
+
+data:
+  name: Tile_and_Just_Transform_Simple_Mean_Dataset
+  params:
+    images_directory: ../data/three_ch/train_data
+    masks_directory: ../data/three_ch/mask_data
+    train_transform: train_transforms_basic
+    valid_transform: valid_transforms_basic
+    num_of_tiles: 8
+
+optimizer:
+  name: Adam
+  params:
+    encoder_lr: !!float 1e-4
+    decoder_lr: !!float 1e-3
+
+criterion:
+  name: Dice_Focal
+  params:
+    weight: [0.95, 0.05]
+    # gamma: 2.5
+    # alpha: 0.1                  # ターゲットに正の値が存在する事前確率
+
+train:
+  params:
+    num_epochs: 100
+    patience: 35
