@@ -1,1 +1,1 @@
-from cloud_seg import config  # noqa: F401
+from src import config  # noqa: F401
