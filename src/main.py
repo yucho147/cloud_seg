@@ -23,6 +23,7 @@ from src.util import (
 from src import data
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
+import lightning as L
 import click
 from torch import optim
 
@@ -35,15 +36,6 @@ data_partition = {
 
 
 # TODO: 全データ学習にする必要がある?
-@click.command()
-@click.option('--conf', '-c', default="./config/config.yaml", help="config file path")
-@click.option('--log', '-l', default='../logs/{0}/output.log'.format(get_timestamp()),
-              help="log file path(It is recommend to use the default values.)")
-@click.option("--hold", "-h", type=int, default=1, help="number of hold")
-@click.option("--suffix", "-s", default=None, help="引数を渡すとlog directryにsuffixを付与する")
-@click.option("--checkpoint", "-cp", default=None, help="pathを渡すと学習済みモデルをloadする")
-@click.option("--all_train", "-a", default=False, type=bool,
-              help="全学習データを学習に回すか(最後の学習以外False)")
 def main(conf: str,
          log: str,
          hold: int,

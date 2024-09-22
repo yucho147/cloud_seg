@@ -1,10 +1,15 @@
+Pillow
 black
 flake8
 isort
+lightning
 loguru
 mkdocs
 pip
 python-dotenv
+segmentation_models_pytorch
+timm
+torch
+torchvision
 tqdm
 typer
--e .
