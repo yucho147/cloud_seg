@@ -2,28 +2,35 @@ import albumentations as A
 import numpy as np
 
 
-class GammaCorrection(A.ImageOnlyTransform):
-    def __init__(self, gamma=1.0, always_apply=True, p=1.0):
+# 正規化
+class Normalize(A.ImageOnlyTransform):
+    def __init__(self, dtype: str, always_apply: bool = True, p: float = 1.0) -> None:
         super().__init__(always_apply=always_apply, p=p)
-        self.gamma = gamma
+        self.dtype = dtype
 
-    def apply(self, img, **params):
-        # 0を含むため、適切な範囲にスケーリング
-        img = img.astype(np.float32)
-        img = np.clip(img, a_min=0, a_max=None)  # 負の値を0に
-        max_val = img.max()
-        if max_val == 0:
-            # 全ての値が0の場合、補正は不要
-            return img
-        img = img / max_val  # [0, 1]に正規化
-        img = img ** self.gamma  # ガンマ補正
-        img = img * max_val  # 元のスケールに戻す
+    def apply(self, img: np.ndarray, **params) -> np.ndarray:
+        img = np.clip(img, a_min=0, a_max=None)
+        if self.dtype == "uint16":
+            img = img.astype(np.float32) / 65535.0
+        else:
+            img = img.astype(np.float32) / 255.0
         return img
 
 
-def get_transforms(train: bool = True, gamma: float = 1.0):
+# ガンマ補正
+class GammaCorrection(A.ImageOnlyTransform):
+    def __init__(self, gamma: float = 1.0, always_apply: bool = True, p: float = 1.0) -> None:
+        super().__init__(always_apply=always_apply, p=p)
+        self.gamma = gamma
+
+    def apply(self, img: np.ndarray, **params) -> np.ndarray:
+        img = img ** self.gamma  # ガンマ補正
+        return img
+
+
+def get_transforms(train: bool = True, gamma: float = 1.0) -> A.Compose:
     transforms_list = [
-        A.Resize(512, 512),
+        Normalize(dtype="uint16"),
         GammaCorrection(gamma=gamma),
     ]
 

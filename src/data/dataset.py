@@ -1,26 +1,27 @@
 import os
-from typing import Callable, Optional, List
+from collections.abc import Callable
 
 import cv2
+import lightning as L
 import numpy as np
+import polars as pl
 import torch
-from pytorch_lightning import LightningDataModule
 from torch.utils.data import (
     Dataset,
     DataLoader,
-    random_split,
+    Subset,
 )
-from src.data._Transforms import get_transforms
+from src.data.Transforms import get_transforms
 
 
 class SegmentationDataset(Dataset):
     def __init__(
-        self,
-        features_dir: str,
-        labels_dir: str,
-        bands: List[str],
-        transform: Optional[Callable] = None,
-    ):
+            self,
+            features_dir: str,
+            labels_dir: str,
+            bands: list[str],
+            transform: Callable | None = None,
+    ) -> None:
         """
         セグメンテーション用のデータセット。
 
@@ -46,10 +47,10 @@ class SegmentationDataset(Dataset):
             if os.path.isdir(os.path.join(features_dir, name))
         ]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.sample_ids)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
         sample_id = self.sample_ids[idx]
 
         # バンドごとの画像を読み込み、チャンネル方向にスタック
@@ -80,32 +81,72 @@ class SegmentationDataset(Dataset):
         # テンソルに変換
         image = image.transpose(2, 0, 1)  # (チャンネル, 高さ, 幅)
         image = torch.from_numpy(image).float()
-        mask = torch.from_numpy(mask).long()
+        mask = torch.from_numpy(mask).float()
 
+        # ラベルにチャンネル次元を追加 (1, 高さ, 幅)
+        mask = mask.unsqueeze(0)
         return image, mask
 
 
-class SegmentationDataModule(LightningDataModule):
+class SegmentationDataModule(L.LightningModule):
     def __init__(
-        self,
-        data_dir: str,
-        bands: List[str],
-        gamma: float = 1.0,
-        batch_size: int = 8,
-        num_workers: int = 4,
-        val_split: float = 0.2,
-        test_split: float = 0.1,
-    ):
+            self,
+            data_dir: str,
+            bands: list[str],
+            gamma: float = 1.0,
+            batch_size: int = 8,
+            num_workers: int = 4,
+            transform: Callable | None = None,
+            train_holds: list[int] = [0, 1, 2, 3, 4, 5, 6],
+            val_holds: list[int] = [7, 8],
+            test_holds: list[int] = [9],
+    ) -> None:
         super().__init__()
         self.data_dir = data_dir
         self.bands = bands
         self.gamma = gamma
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.val_split = val_split
-        self.test_split = test_split
+        self.transform = transform
+        self.train_holds = train_holds
+        self.val_holds = val_holds
+        self.test_holds = test_holds
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None) -> None:
+        # interim/train_metadata.csvが存在しない場合には下記を実行
+        if not os.path.exists(os.path.join(self.data_dir, "interim", "train_metadata.csv")):
+            # メタデータの読み込み
+            # リークが発生しないようにデータの分割を行う
+            # ここでは、locationとdatetimeの組み合わせでグループ化し、
+            # それぞれのグループに対してレコード数をカウントし、
+            # 昇順に0~9のindexをholdとして新たなカラムを追加
+            df = pl.read_csv(
+                os.path.join(self.data_dir, "raw", "train_metadata.csv")
+            )
+            df.join(
+                df
+                .group_by(
+                    ["location", "datetime"]
+                )
+                .len()
+                .sort("len")
+                .with_row_index(name="hold")
+                .with_columns(
+                    pl.col("hold") % 10
+                ),
+                on=["location", "datetime"]
+            ).write_csv(
+                os.path.join(self.data_dir, "interim", "train_metadata.csv")
+            )
+        id2hold_dict = {
+            id: hold for id, hold in
+            pl.read_csv(
+                os.path.join(self.data_dir, "interim", "train_metadata.csv")
+            )
+            .select(["chip_id", "hold"])
+            .to_numpy()
+        }
+
         features_dir = os.path.join(self.data_dir, "raw", "data", "train_features")
         labels_dir = os.path.join(self.data_dir, "raw", "data", "train_labels")
 
@@ -114,25 +155,31 @@ class SegmentationDataModule(LightningDataModule):
             features_dir=features_dir,
             labels_dir=labels_dir,
             bands=self.bands,
-            transform=None,
+            transform=self.transform,
         )
 
         # データセットの分割
-        total_size = len(full_dataset)
-        val_size = int(total_size * self.val_split)
-        test_size = int(total_size * self.test_split)
-        train_size = total_size - val_size - test_size
+        # holdがtrain_holdsに含まれるものをtrain、val_holdsに含まれるものをval、test_holdsに含まれるものをtestとする
+        # それぞれのサンプルのファイル名を取得
+        train_file_name = [k for k, v in id2hold_dict.items() if v in self.train_holds]
+        val_file_name = [k for k, v in id2hold_dict.items() if v in self.val_holds]
+        test_file_name = [k for k, v in id2hold_dict.items() if v in self.test_holds]
+        # ファイル名からインデックスを取得
+        train_index = [full_dataset.sample_ids.index(k) for k in train_file_name]
+        val_index = [full_dataset.sample_ids.index(k) for k in val_file_name]
+        test_index = [full_dataset.sample_ids.index(k) for k in test_file_name]
 
-        self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-            full_dataset, [train_size, val_size, test_size]
-        )
+        # データセットの分割
+        self.train_dataset = Subset(full_dataset, train_index)
+        self.val_dataset = Subset(full_dataset, val_index)
+        self.test_dataset = Subset(full_dataset, test_index)
 
         # 変換の設定（ガンマ補正を含む）
         self.train_dataset.dataset.transform = get_transforms(train=True, gamma=self.gamma)
         self.val_dataset.dataset.transform = get_transforms(train=False, gamma=self.gamma)
         self.test_dataset.dataset.transform = get_transforms(train=False, gamma=self.gamma)
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -140,7 +187,7 @@ class SegmentationDataModule(LightningDataModule):
             num_workers=self.num_workers,
         )
 
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
@@ -148,7 +195,7 @@ class SegmentationDataModule(LightningDataModule):
             num_workers=self.num_workers,
         )
 
-    def test_dataloader(self):
+    def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test_dataset,
             batch_size=self.batch_size,

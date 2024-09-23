@@ -1,39 +1,41 @@
 seed: 147
 
+# datamoduleで包含するので、datasetは不要
+dataset:
+  name: "SegmentationDataset"
+  params:
+    features_dir: "./data/raw/data/train_features"
+    labels_dir: "./data/raw/data/train_labels"
+    bands: ["B02.tif", "B03.tif", "B08.tif"]
+# datamoduleで包含するので、datasetは不要
+
+datamodule:
+  name: "SegmentationDataModule"
+  params:
+    data_dir: "./data"
+    bands: ["B02.tif", "B03.tif", "B08.tif"]
+    gamma: 0.25
+    batch_size: 16
+    num_workers: 1
+    train_holds: [0, 1, 2, 3, 4, 5, 6]
+    val_holds: [7, 8]
+    test_holds: [9]
+    
+
 model:
-  name: Three_Ch_Two_Fig_EffNet_Unetpp
+  name: "VanillaUnet"
   params:
-    encoder_name: timm-efficientnet-b0
-    encoder_depth: 5
+    encoder_name: resnet34
     encoder_weights: imagenet
+    in_channels: 3
     classes: 1
+    encoder_depth: 3
+    decoder_channels: [256, 64, 16]
+    activation: sigmoid
+    loss_func_name: BCELoss
 
-train_test_ratio: 0.8
-batch_size: 16
-
-data:
-  name: Tile_and_Just_Transform_Dataset
+trainer:
+  name: Trainer
   params:
-    images_directory: ../data/three_ch/train_data
-    masks_directory: ../data/three_ch/mask_data
-    train_transform: train_transforms_basic
-    valid_transform: valid_transforms_basic
-    num_of_tiles: 4
-
-optimizer:
-  name: Adam
-  params:
-    encoder_lr: !!float 1e-5
-    decoder_lr: !!float 1e-4
-
-criterion:
-  name: BinaryFocalLoss
-  params:
-    {}
-    # gamma: 2.5
-    # alpha: 0.1                  # ターゲットに正の値が存在する事前確率
-
-train:
-  params:
-    num_epochs: 100
-    patience: 10
+    max_epochs: 3
+    accelerator: auto

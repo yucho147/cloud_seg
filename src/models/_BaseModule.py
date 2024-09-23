@@ -245,7 +245,7 @@ class BaseModule(L.LightningModule):
         callbacks = []
         for key in self.callback_configs:
             callback = set_module(
-                groups=[L.callbacks],
+                groups=[L.pytorch.callbacks],
                 config=self.callback_configs,
                 key=key,
             )

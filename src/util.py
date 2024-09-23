@@ -40,10 +40,12 @@ def get_module(groups: list, name: Optional[str]):
         return return_none
 
 
-def set_module(groups: list, config: dict, key: str, **kwargs):
+def set_module(groups: list, config: DictConfig, key: str, **kwargs):
     conf = config[key]
     name = conf['name']
-    params = conf.get('params', {})
+    # DictConfigのままだと、標準の型以外が要素に入った際にUnsupportedValueTypeがraiseしてしまうため、dictにcastしてupdateする
+    # 詳細: DictConfigはdictでcastしてもネストした要素はDictConfig型のままになってしまう
+    params = dict(conf.get('params', {}))
     params.update(kwargs)
     return get_module(groups, name)(**params)
 

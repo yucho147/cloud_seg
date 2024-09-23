@@ -3,12 +3,12 @@ albumentations
 black
 flake8
 isort
-lightning
+lightning[extra]
 loguru
 mkdocs
 omegaconf
 opencv-python
-pip
+polars
 python-dotenv
 pytorch_toolbelt
 segmentation_models_pytorch
