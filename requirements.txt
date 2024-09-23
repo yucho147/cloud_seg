@@ -1,15 +1,20 @@
 Pillow
+albumentations
 black
 flake8
 isort
 lightning
 loguru
 mkdocs
+omegaconf
+opencv-python
 pip
 python-dotenv
+pytorch_toolbelt
 segmentation_models_pytorch
 timm
 torch
 torchvision
 tqdm
 typer
+-e .

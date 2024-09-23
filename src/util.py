@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
-from attrdict import AttrDict
 from datetime import datetime, timezone, timedelta
 from logging import getLogger, StreamHandler, Formatter, FileHandler, DEBUG
+from omegaconf import OmegaConf
+from omegaconf.dictconfig import DictConfig
 from typing import Optional
 import numpy as np
 import os
 import random
 import shutil
 import torch
-import yaml
 
 
 def set_seed(seed):
@@ -54,7 +54,7 @@ def listdir_nohidden(path):
             yield f
 
 
-def load_config(config_path: str) -> AttrDict:
+def load_config(config_path: str) -> DictConfig:
     """config(yaml)ファイルを読み込む
 
     Parameters
@@ -64,11 +64,10 @@ def load_config(config_path: str) -> AttrDict:
 
     Returns
     -------
-    config : attrdict.AttrDict
-        configを読み込んでattrdictにしたもの
+    config : DictConfig
+        configを読み込んでOmegaConfigのDictConfigにしたもの
     """
-    with open(config_path, 'r', encoding='utf-8') as fi_:
-        return AttrDict(yaml.load(fi_, Loader=yaml.SafeLoader))
+    return OmegaConf.load(config_path)
 
 
 def output_config(config_path, output_dir, y=False, prefix=None):
