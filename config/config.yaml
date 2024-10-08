@@ -1,6 +1,7 @@
 seed: 147
 
 # datamoduleで包含するので、datasetは不要
+# https://www.kaggle.com/datasets/hmendonca/cloud-cover-detection
 dataset:
   name: "SegmentationDataset"
   params:
@@ -33,9 +34,32 @@ model:
     decoder_channels: [256, 64, 16]
     activation: sigmoid
     loss_func_name: BCELoss
+    optimizer_name: Adam
+    optimizer_params:
+      lr: 1e-3
+      weight_decay: 1e-6
+      amsgrad: False
+    scheduler_name: CosineAnnealingLR
+    scheduler_params:
+      T_max: 4
+      eta_min: 1e-6
+      last_epoch: -1
+    callback_configs:
+      early_stopping:
+        name: EarlyStopping
+        params:
+          monitor: val_loss
+          mode: min
+          patience: 10
+      model_checkpoint:
+        name: ModelCheckpoint
+        params:
+          monitor: val_loss
+          save_top_k: 1
 
 trainer:
   name: Trainer
   params:
-    max_epochs: 3
+    max_epochs: 30
     accelerator: auto
+    # precision: "16-true"

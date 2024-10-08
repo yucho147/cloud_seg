@@ -12,6 +12,7 @@ polars
 python-dotenv
 pytorch_toolbelt
 segmentation_models_pytorch
+tensorboard
 timm
 torch
 torchvision

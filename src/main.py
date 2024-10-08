@@ -1,26 +1,27 @@
-from loguru import logger
 import lightning as L
+from loguru import logger
+from src import models
+from src.models.MyCallback import SaveConfigOnStartCallback
+from src.data import dataset as my_dataset
 from src.util import (
     get_module,
     load_config,
     set_module,
     set_seed,
 )
-from src import models
-from src.data import dataset as my_dataset
 from typer import Typer
 
 app = Typer()
 
 
 @app.command()
-def cli_run_training(config_path: str):
+def cli_run_training(config_path: str) -> None:
     logger.info("start training.")
     run_training(config_path)
     logger.success("Finish training.")
 
 
-def run_training(config_path: str):
+def run_training(config_path: str) -> None:
     # Load config
     config = load_config(config_path)
     logger.info(f"Config: {config}")
@@ -35,7 +36,7 @@ def run_training(config_path: str):
     key = "datamodule"
     logger.info(f"name: {config[key]['name']}")
     logger.info(f"params: {config[key]['params']}")
-    datamodule = set_module(
+    datamodule: L.LightningDataModule = set_module(
         groups=[my_dataset],
         config=config,
         key=key,
@@ -47,7 +48,7 @@ def run_training(config_path: str):
     key = "model"
     logger.info(f"name: {config[key]['name']}")
     logger.info(f"params: {config[key]['params']}")
-    model = set_module(
+    model: L.LightningModule = set_module(
         groups=[models],
         config=config,
         key=key,
@@ -58,15 +59,22 @@ def run_training(config_path: str):
     key = "trainer"
     logger.info(f"name: {config[key]['name']}")
     logger.info(f"params: {config[key]['params']}")
-    trainer = get_module(
+    trainer: L.Trainer = get_module(
         groups=[L],
         name=config[key]["name"],
     )(**config[key]["params"])
+    # trainerインスタンスに後からconfigを保存するcallbackを追加
+    trainer.callbacks.append(
+        SaveConfigOnStartCallback(
+            config=config,
+            save_dir=trainer.logger.log_dir,
+        ),
+    )
 
     # train
     logger.info("Start training.")
     trainer.fit(model=model, datamodule=datamodule)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app()

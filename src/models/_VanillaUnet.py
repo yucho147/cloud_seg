@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 import segmentation_models_pytorch as smp
-from src.models._BaseModule import (
+from ._BaseModule import (
     BaseModule,
 )
 
@@ -28,7 +28,7 @@ class VanillaUnet(BaseModule):
         デコーダでバッチ正規化を使用するかどうかを指定します。`True`、`False`、`"inplace"` のいずれかを選択できます。
 
     decoder_attention_type : str or None, default=None
-        デコーダのブロックに適用する注意機構の種類を指定します。`"scse"`（Squeeze-and-Excitation）や `None`（注意機構を使用しない）を選択できます。
+        デコーダのブロックに適用する注意機構の種類を指定します。`"scse"`(Squeeze-and-Excitation)や `None`(注意機構を使用しない)を選択できます。
 
     in_channels : int, default=3
         入力データのチャンネル数を指定します。例えば、RGB画像であれば `3` になります。

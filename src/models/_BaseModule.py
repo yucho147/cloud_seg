@@ -1,8 +1,9 @@
 import lightning as L
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from pytorch_toolbelt import losses as ptl
+from torch import nn
+from torch import optim
+from src.models import MyCallback
 from src.util import (
     get_module,
     set_module,
@@ -11,7 +12,7 @@ from src.util import (
 
 def create_criterion(
         loss_func_name: str,
-        loss_func_params: dict
+        loss_func_params: dict,
 ) -> nn.Module:
     """Create a loss function instance.
 
@@ -43,7 +44,7 @@ def create_criterion(
 def create_optimizer(
         optimizer_name: str,
         model_params: dict,
-        optimizer_params: dict
+        optimizer_params: dict,
 ) -> optim.Optimizer:
     """Create an optimizer instance.
 
@@ -74,14 +75,14 @@ def create_optimizer(
         optimizer_name,
     )(
         model_params,
-        **optimizer_params
+        **optimizer_params,
     )
 
 
 def create_scheduler(
         scheduler_name: str,
         optimizer: optim.Optimizer,
-        scheduler_params: dict
+        scheduler_params: dict,
 ) -> optim.lr_scheduler._LRScheduler:
     """Create a learning rate scheduler instance.
 
@@ -138,7 +139,7 @@ class BaseModule(L.LightningModule):
 
     def __init__(
             self,
-            callback_configs: list[dict] | None = None
+            callback_configs: list[dict] | None = None,
     ) -> None:
         super().__init__()
         self.model = None
@@ -147,21 +148,21 @@ class BaseModule(L.LightningModule):
         self.lr_scheduler_config = None
         self.callback_configs = (
             callback_configs if callback_configs is not None else {
-                'early_stopping': {
-                    'name': 'EarlyStopping',
-                    'params': {
-                        'monitor': 'val_loss',
-                        'mode': 'min',
-                        'patience': 5,
-                    }
+                "early_stopping": {
+                    "name": "EarlyStopping",
+                    "params": {
+                        "monitor": "val_loss",
+                        "mode": "min",
+                        "patience": 5,
+                    },
                 },
-                'model_checkpoint': {
-                    'name': 'ModelCheckpoint',
-                    'params': {
-                        'monitor': 'val_loss',
-                        'save_top_k': 1,
-                    }
-                }
+                "model_checkpoint": {
+                    "name": "ModelCheckpoint",
+                    "params": {
+                        "monitor": "val_loss",
+                        "save_top_k": 1,
+                    },
+                },
             }
         )
 
@@ -225,34 +226,34 @@ class BaseModule(L.LightningModule):
         if self.callback_configs is None:
             # デフォルトのコールバック設定
             self.callback_configs = {
-                'early_stopping': {
-                    'name': 'EarlyStopping',
-                    'params': {
-                        'monitor': 'val_loss',
-                        'mode': 'min',
-                        'patience': 5,
-                    }
+                "early_stopping": {
+                    "name": "EarlyStopping",
+                    "params": {
+                        "monitor": "val_loss",
+                        "mode": "min",
+                        "patience": 5,
+                    },
                 },
-                'model_checkpoint': {
-                    'name': 'ModelCheckpoint',
-                    'params': {
-                        'monitor': 'val_loss',
-                        'save_top_k': 1,
-                    }
-                }
+                "model_checkpoint": {
+                    "name": "ModelCheckpoint",
+                    "params": {
+                        "monitor": "val_loss",
+                        "save_top_k": 1,
+                    },
+                },
             }
 
         callbacks = []
         for key in self.callback_configs:
             callback = set_module(
-                groups=[L.pytorch.callbacks],
+                groups=[L.pytorch.callbacks, MyCallback],
                 config=self.callback_configs,
                 key=key,
             )
             callbacks.append(callback)
         return callbacks
 
-    def training_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
         x, y = batch
         y_hat = self.forward(x)
         loss = self.loss_func(y_hat, y)
@@ -266,7 +267,7 @@ class BaseModule(L.LightningModule):
         )
         return loss
 
-    def validation_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:  # noqa: ARG002
         x, y = batch
         y_hat = self.forward(x)
         loss = self.loss_func(y_hat, y)

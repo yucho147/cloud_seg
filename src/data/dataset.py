@@ -11,7 +11,7 @@ from torch.utils.data import (
     DataLoader,
     Subset,
 )
-from src.data.Transforms import get_transforms
+from .Transforms import get_transforms
 
 
 class SegmentationDataset(Dataset):
